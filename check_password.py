@@ -6,7 +6,7 @@ import requests
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPalette, QColor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, \
-    QPushButton, QTextEdit
+    QPushButton, QTextEdit, QProgressBar
 
 
 class PasswordCheckerApp(QMainWindow):
@@ -56,9 +56,18 @@ class PasswordCheckerApp(QMainWindow):
         result_text.setReadOnly(True)
         result_text.setStyleSheet(qdarkstyle.load_stylesheet())
 
+        progress_bar = QProgressBar()
+        progress_bar.setMinimum(0)
+        progress_bar.setMaximum(100)
+        progress_bar.setValue(0)
+        progress_bar.setTextVisible(True)
+        progress_bar.setVisible(False)
+        progress_bar.setStyleSheet(qdarkstyle.load_stylesheet())
+
         password_layout.addWidget(password_label)
         password_layout.addWidget(password_input)
         password_layout.addWidget(check_button)
+        password_layout.addWidget(progress_bar)
         password_layout.addWidget(result_text)
 
         layout.addWidget(title_bar_widget)
@@ -93,10 +102,15 @@ class PasswordCheckerApp(QMainWindow):
             self.update_result('Enter a password')
             return
 
-        sha1password = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
-        first5_char, tail = sha1password[:5], sha1password[5:]
+        hashed_password = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
+        first5_char, tail = hashed_password[:5], hashed_password[5:]
+
         url = 'https://api.pwnedpasswords.com/range/' + first5_char
+
+        self.show_progress_bar()
         response = requests.get(url)
+        self.hide_progress_bar()
+
         if response.status_code != 200:
             result = f'Error fetching: {response.status_code}, check the API and try again'
         else:
@@ -111,6 +125,14 @@ class PasswordCheckerApp(QMainWindow):
     def update_result(self, result):
         result_text = self.findChild(QTextEdit)
         result_text.setText(result)
+
+    def show_progress_bar(self):
+        progress_bar = self.findChild(QProgressBar)
+        progress_bar.setVisible(True)
+
+    def hide_progress_bar(self):
+        progress_bar = self.findChild(QProgressBar)
+        progress_bar.setVisible(False)
 
 
 if __name__ == '__main__':
