@@ -14,3 +14,7 @@ Password Checker is a simple desktop application built using PyQt5 that allows y
 - Python 3.6 or above
 - PyQt5 library
 - Requests library
+
+## Screenshots
+
+![Screenshot](/screenshots/password_checker.png)
