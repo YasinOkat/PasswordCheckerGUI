@@ -1,6 +1,6 @@
 import hashlib
 import sys
-
+import re
 import qdarkstyle
 import requests
 from PyQt5.QtCore import Qt
@@ -19,6 +19,11 @@ class PasswordCheckerApp(QMainWindow):
 
         main_widget = QWidget()
         layout = QVBoxLayout(main_widget)
+
+        brute_force_label = QLabel('Brute Force Time:')
+        brute_force_label.setFont(QFont('Arial', 10))
+        self.brute_force_value = QLabel('')
+        self.brute_force_value.setFont(QFont('Arial', 10))
 
         title_bar_widget = QWidget()
         title_bar_layout = QHBoxLayout(title_bar_widget)
@@ -45,7 +50,6 @@ class PasswordCheckerApp(QMainWindow):
         password_label = QLabel('Enter your password:')
         password_label.setFont(QFont('Arial', 10))
         password_input = QLineEdit()
-        password_input.setEchoMode(QLineEdit.Password)
         password_input.setStyleSheet(qdarkstyle.load_stylesheet())
 
         check_button = QPushButton('Check')
@@ -56,19 +60,23 @@ class PasswordCheckerApp(QMainWindow):
         result_text.setReadOnly(True)
         result_text.setStyleSheet(qdarkstyle.load_stylesheet())
 
-        progress_bar = QProgressBar()
-        progress_bar.setMinimum(0)
-        progress_bar.setMaximum(100)
-        progress_bar.setValue(0)
-        progress_bar.setTextVisible(True)
-        progress_bar.setVisible(False)
-        progress_bar.setStyleSheet(qdarkstyle.load_stylesheet())
+        strength_label = QLabel('Strength:')
+        strength_label.setFont(QFont('Arial', 10))
+        strength_indicator = QProgressBar()
+        strength_indicator.setMinimum(0)
+        strength_indicator.setMaximum(100)
+        strength_indicator.setValue(0)
+        strength_indicator.setTextVisible(True)
+        strength_indicator.setStyleSheet(qdarkstyle.load_stylesheet())
 
         password_layout.addWidget(password_label)
         password_layout.addWidget(password_input)
         password_layout.addWidget(check_button)
-        password_layout.addWidget(progress_bar)
         password_layout.addWidget(result_text)
+        password_layout.addWidget(strength_label)
+        password_layout.addWidget(strength_indicator)
+        password_layout.addWidget(brute_force_label)
+        password_layout.addWidget(self.brute_force_value)
 
         layout.addWidget(title_bar_widget)
         layout.addWidget(password_widget)
@@ -82,6 +90,8 @@ class PasswordCheckerApp(QMainWindow):
         self.setStyleSheet(qdarkstyle.load_stylesheet())
 
         self.drag_position = None
+
+        password_input.textChanged.connect(self.update_password_strength)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -107,9 +117,9 @@ class PasswordCheckerApp(QMainWindow):
 
         url = 'https://api.pwnedpasswords.com/range/' + first5_char
 
+        self.hide_progress_bar()
         self.show_progress_bar()
         response = requests.get(url)
-        self.hide_progress_bar()
 
         if response.status_code != 200:
             result = f'Error fetching: {response.status_code}, check the API and try again'
@@ -133,6 +143,152 @@ class PasswordCheckerApp(QMainWindow):
     def hide_progress_bar(self):
         progress_bar = self.findChild(QProgressBar)
         progress_bar.setVisible(False)
+
+    def update_password_strength(self, password):
+        # Calculate password strength
+        upper, lower, digit, symbols = False, False, False, False
+        length = len(password)
+        scaling_factor = 0.5 if length > 10 else length / 20
+        length_strength = min(length, 10) * 10 * scaling_factor
+
+        complexity_strength = 0
+
+        if any(c.isupper() for c in password):
+            complexity_strength += 10
+            upper = True
+
+        if any(c.islower() for c in password):
+            complexity_strength += 10
+            lower = True
+
+        if any(c.isdigit() for c in password):
+            complexity_strength += 10
+            digit = True
+
+        if any(not c.isalnum() and not c.isspace() for c in password):
+            complexity_strength += 10
+            symbols = True
+
+        pattern_strength = 0
+        patterns = [
+            "0123456789",
+            "abcdefghijklmnopqrstuvwxyz",
+            "qwertyuiop",
+            "asdfghjkl",
+            "zxcvbnm",
+            "!@#$%^&*()_+",
+        ]
+
+        brute_force_time = "Unknown"
+
+        if length < 12 and digit and not any([upper, lower, symbols]):
+            brute_force_time = "Instantly"
+        elif length in range(12, 19) and digit and not any([upper, lower, symbols]):
+            brute_force_time = {
+                12: "2 secs",
+                13: "19 secs",
+                14: "3 mins",
+                15: "32 mins",
+                16: "5 hours",
+                17: "2 days",
+                18: "3 weeks"
+            }.get(length, "Unknown")
+
+        elif length < 9 and lower and not any([upper, digit, symbols]):
+            brute_force_time = "Instantly"
+        elif length in range(9, 19) and lower and not any([upper, digit, symbols]):
+            brute_force_time = {
+                9: "10 secs",
+                10: "4 mins",
+                11: "2 hours",
+                12: "2 days",
+                13: "2 months",
+                14: "4 years",
+                15: "100 years",
+                16: "3k years",
+                17: "69k years",
+                18: "2m years",
+            }.get(length, "Unknown")
+
+        elif length < 7 and lower and upper and not any([digit, symbols]):
+            brute_force_time = "Instantly"
+        elif length in range(7, 19) and upper and lower and not any([digit, symbols]):
+            brute_force_time = {
+                7: "2 secs",
+                8: "2 mins",
+                9: "1 hours",
+                10: "3 days",
+                11: "5 months",
+                12: "24 years",
+                13: "1k years",
+                14: "64k years",
+                15: "3m years",
+                16: "173m years",
+                17: "9bn years",
+                18: "467bn years",
+            }.get(length, "Unknown")
+
+        elif length < 7 and lower and upper and digit and not any([symbols]):
+            brute_force_time = "Instantly"
+        elif length in range(7, 19) and upper and lower and digit and not any([symbols]):
+            brute_force_time = {
+                7: "7 secs",
+                8: "7 mins",
+                9: "7 hours",
+                10: "3 weeks",
+                11: "3 years",
+                12: "200 years",
+                13: "12k years",
+                14: "750k years",
+                15: "46m years",
+                16: "3bn years",
+                17: "179bn years",
+                18: "11tn years",
+            }.get(length, "Unknown")
+
+        elif length < 7 and lower and upper and digit and symbols:
+            brute_force_time = "Instantly"
+        elif length in range(7, 19) and upper and lower and digit and symbols:
+            brute_force_time = {
+                7: "31 secs",
+                8: "39 mins",
+                9: "2 days",
+                10: "5 months",
+                11: "34 years",
+                12: "3k years",
+                13: "202k years",
+                14: "16m years",
+                15: "1bn years",
+                16: "92bn years",
+                17: "7tn years",
+                18: "438tn years",
+            }.get(length, "Unknown")
+
+        if length > 18 and digit and not any([upper, symbols, lower]):
+            brute_force_time = "More than 3 weeks"
+        elif length > 18 and lower:
+            brute_force_time = "More than 2m years"
+        elif length > 18 and upper:
+            brute_force_time = "More than 467bn years"
+        elif length > 18 and digit and upper and lower:
+            brute_force_time = "More than 11tn years"
+        elif length > 18 and symbols:
+            brute_force_time = "More than 438tn years"
+
+        for pattern in patterns:
+            if pattern in password.lower():
+                pattern_strength -= 10
+
+        if any(password.lower().count(char * 3) > 0 for char in password.lower()):
+            pattern_strength -= 10
+
+        complexity_strength += pattern_strength
+
+        strength_score = int(length_strength + complexity_strength)
+
+        strength_indicator = self.findChild(QProgressBar)
+        strength_indicator.setValue(strength_score)
+        self.brute_force_value.setText(brute_force_time)
 
 
 if __name__ == '__main__':
