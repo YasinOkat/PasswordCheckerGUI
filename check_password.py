@@ -1,12 +1,12 @@
 import hashlib
 import sys
-import re
-import qdarkstyle
+
 import requests
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QPalette, QColor
+from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QCursor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, \
-    QPushButton, QTextEdit, QProgressBar
+    QPushButton, QTextEdit, QProgressBar, QStyle
+from qt_material import apply_stylesheet
 
 
 class PasswordCheckerApp(QMainWindow):
@@ -14,34 +14,25 @@ class PasswordCheckerApp(QMainWindow):
         super().__init__()
         self.setWindowTitle('Password Checker')
         self.setFixedSize(600, 400)
-        self.setStyleSheet(qdarkstyle.load_stylesheet())
         self.setWindowFlags(Qt.FramelessWindowHint)
+
+        self.drag_position = None
 
         main_widget = QWidget()
         layout = QVBoxLayout(main_widget)
 
-        brute_force_label = QLabel('Brute Force Time:')
-        brute_force_label.setFont(QFont('Arial', 10))
-        self.brute_force_value = QLabel('')
-        self.brute_force_value.setFont(QFont('Arial', 10))
-
         title_bar_widget = QWidget()
         title_bar_layout = QHBoxLayout(title_bar_widget)
         title_bar_layout.setContentsMargins(0, 0, 0, 0)
-        title_bar_widget.setStyleSheet(qdarkstyle.load_stylesheet())
+        title_bar_widget.setObjectName("title_bar_widget")
 
         title_label = QLabel('Password Checker')
         title_label.setFont(QFont('Arial', 12, QFont.Bold))
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet(qdarkstyle.load_stylesheet())
-
-        close_button = QPushButton('X')
-        close_button.clicked.connect(self.close)
-        close_button.setStyleSheet(qdarkstyle.load_stylesheet())
-        close_button.setMaximumWidth(30)
+        title_label.setAlignment(Qt.AlignLeft)
 
         title_bar_layout.addWidget(title_label)
-        title_bar_layout.addWidget(close_button)
+
+        layout.addWidget(title_bar_widget)
 
         password_widget = QWidget()
         password_layout = QVBoxLayout(password_widget)
@@ -50,15 +41,13 @@ class PasswordCheckerApp(QMainWindow):
         password_label = QLabel('Enter your password:')
         password_label.setFont(QFont('Arial', 10))
         password_input = QLineEdit()
-        password_input.setStyleSheet(qdarkstyle.load_stylesheet())
+        password_input.setStyleSheet("color: #1de9b6;")
 
         check_button = QPushButton('Check')
         check_button.clicked.connect(lambda: self.check_password(password_input.text()))
-        check_button.setStyleSheet(qdarkstyle.load_stylesheet())
 
         result_text = QTextEdit()
         result_text.setReadOnly(True)
-        result_text.setStyleSheet(qdarkstyle.load_stylesheet())
 
         strength_label = QLabel('Strength:')
         strength_label.setFont(QFont('Arial', 10))
@@ -67,7 +56,11 @@ class PasswordCheckerApp(QMainWindow):
         strength_indicator.setMaximum(100)
         strength_indicator.setValue(0)
         strength_indicator.setTextVisible(True)
-        strength_indicator.setStyleSheet(qdarkstyle.load_stylesheet())
+
+        brute_force_label = QLabel('The time it will take to hack with brute force:')
+        brute_force_label.setFont(QFont('Arial', 10))
+        self.brute_force_value = QLabel('')
+        self.brute_force_value.setFont(QFont('Arial', 10))
 
         password_layout.addWidget(password_label)
         password_layout.addWidget(password_input)
@@ -78,20 +71,51 @@ class PasswordCheckerApp(QMainWindow):
         password_layout.addWidget(brute_force_label)
         password_layout.addWidget(self.brute_force_value)
 
-        layout.addWidget(title_bar_widget)
         layout.addWidget(password_widget)
 
         self.setCentralWidget(main_widget)
 
         palette = self.palette()
-        palette.setColor(QPalette.Window, QColor("#222222"))
         self.setPalette(palette)
 
-        self.setStyleSheet(qdarkstyle.load_stylesheet())
-
-        self.drag_position = None
-
         password_input.textChanged.connect(self.update_password_strength)
+
+        self.create_title_bar_buttons()
+
+    def create_title_bar_buttons(self):
+        title_bar = self.findChild(QWidget, "title_bar_widget")
+
+        minimize_button = QPushButton()
+        minimize_button.setIcon(self.style().standardIcon(QStyle.SP_TitleBarMinButton))
+        minimize_button.setStyleSheet("background-color: transparent; border: none;")
+
+        minimize_button.setFixedSize(30, 30)
+        minimize_button.setCursor(QCursor(Qt.PointingHandCursor))
+        minimize_button.clicked.connect(self.showMinimized)
+        minimize_button.installEventFilter(self)
+
+        title_bar.layout().addWidget(minimize_button)
+
+        close_button = QPushButton()
+        close_button.setIcon(self.style().standardIcon(QStyle.SP_TitleBarCloseButton))
+        close_button.setStyleSheet("background-color: transparent; border: none;")
+        close_button.setFixedSize(30, 30)
+        close_button.setCursor(QCursor(Qt.PointingHandCursor))
+        close_button.clicked.connect(self.close)
+        close_button.installEventFilter(self)
+
+        title_bar.layout().addWidget(close_button)
+
+        close_button.setIcon(QIcon("resources/close_icon.png"))
+        minimize_button.setIcon(QIcon("resources/minimize_icon.png"))
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.HoverEnter:
+            obj.setStyleSheet("background-color: #1de9b6; border: none;")
+        elif event.type() == QEvent.HoverLeave:
+            obj.setStyleSheet("background-color: transparent; border: none")
+
+        return super().eventFilter(obj, event)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -127,9 +151,11 @@ class PasswordCheckerApp(QMainWindow):
             hashes = (line.split(':') for line in response.text.splitlines())
             count = next((count for h, count in hashes if h == tail), 0)
             if count:
-                result = f'{password} was found {count} times. You should change your password.'
+                result = f'The password "{password}" was found {count} times in compromised databases. It is highly ' \
+                         f'recommended to change your password to ensure your account\'s security.'
             else:
-                result = f'{password} was not found. It\'s safe.'
+                result = f'Congratulations! The password "{password}" was not found in any compromised databases. It ' \
+                         f'appears to be safe and secure.'
         self.update_result(result)
 
     def update_result(self, result):
@@ -287,12 +313,26 @@ class PasswordCheckerApp(QMainWindow):
         strength_score = int(length_strength + complexity_strength)
 
         strength_indicator = self.findChild(QProgressBar)
+
+        if strength_score <= 40:
+            strength_indicator.setValue(strength_score)
+            strength_indicator.setStyleSheet("QProgressBar::chunk { background-color: #dc3545; }")
+        elif strength_score <= 65:
+            strength_indicator.setValue(strength_score)
+            strength_indicator.setStyleSheet("QProgressBar::chunk { background-color: #ffc107; }")
+        else:
+            strength_indicator.setValue(strength_score)
+            strength_indicator.setStyleSheet("QProgressBar::chunk { background-color: green; }")
+
         strength_indicator.setValue(strength_score)
         self.brute_force_value.setText(brute_force_time)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+
+    apply_stylesheet(app, theme='dark_teal.xml')
     window = PasswordCheckerApp()
     window.show()
+
     sys.exit(app.exec_())
