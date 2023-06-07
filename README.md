@@ -22,4 +22,4 @@ Otherwise, the password is considered secure.
 
 ## Screenshots
 
-![Screenshot](/screenshots/password_checker.png)
+![Screenshot](/screenshot/password_checker.png)
