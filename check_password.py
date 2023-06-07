@@ -1,9 +1,9 @@
 import hashlib
 import sys
-
+import random
 import requests
 from PyQt5.QtCore import Qt, QEvent
-from PyQt5.QtGui import QFont, QPalette, QColor, QIcon, QCursor
+from PyQt5.QtGui import QFont, QIcon, QCursor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, \
     QPushButton, QTextEdit, QProgressBar, QStyle
 from qt_material import apply_stylesheet
@@ -17,7 +17,6 @@ class PasswordCheckerApp(QMainWindow):
         self.setWindowFlags(Qt.FramelessWindowHint)
 
         self.drag_position = None
-
         main_widget = QWidget()
         layout = QVBoxLayout(main_widget)
 
@@ -46,6 +45,9 @@ class PasswordCheckerApp(QMainWindow):
         check_button = QPushButton('Check')
         check_button.clicked.connect(lambda: self.check_password(password_input.text()))
 
+        generate_button = QPushButton('Generate Password')
+        generate_button.clicked.connect(self.generate_password_button_clicked)
+
         result_text = QTextEdit()
         result_text.setReadOnly(True)
 
@@ -65,6 +67,7 @@ class PasswordCheckerApp(QMainWindow):
         password_layout.addWidget(password_label)
         password_layout.addWidget(password_input)
         password_layout.addWidget(check_button)
+        password_layout.addWidget(generate_button)
         password_layout.addWidget(result_text)
         password_layout.addWidget(strength_label)
         password_layout.addWidget(strength_indicator)
@@ -81,6 +84,12 @@ class PasswordCheckerApp(QMainWindow):
         password_input.textChanged.connect(self.update_password_strength)
 
         self.create_title_bar_buttons()
+
+    def generate_password_button_clicked(self):
+        # Implement the functionality for generating a password
+        generated_password = self.generate_password()  # Replace generate_password with your own implementation
+        password_input = self.findChild(QLineEdit)
+        password_input.setText(generated_password)
 
     def create_title_bar_buttons(self):
         title_bar = self.findChild(QWidget, "title_bar_widget")
@@ -130,6 +139,17 @@ class PasswordCheckerApp(QMainWindow):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.drag_position = None
+
+    def generate_password(self, length=12, complexity='high'):
+        if complexity == 'low':
+            characters = 'abcdefghijklmnopqrstuvwxyz'
+        elif complexity == 'medium':
+            characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        elif complexity == 'high':
+            characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()'
+
+        password = ''.join(random.choice(characters) for _ in range(length))
+        return password
 
     def check_password(self, password):
         if not password:
@@ -322,9 +342,8 @@ class PasswordCheckerApp(QMainWindow):
             strength_indicator.setStyleSheet("QProgressBar::chunk { background-color: #ffc107; }")
         else:
             strength_indicator.setValue(strength_score)
-            strength_indicator.setStyleSheet("QProgressBar::chunk { background-color: green; }")
+            strength_indicator.setStyleSheet("QProgressBar::chunk { background-color: #449e48  ; }")
 
-        strength_indicator.setValue(strength_score)
         self.brute_force_value.setText(brute_force_time)
 
 
