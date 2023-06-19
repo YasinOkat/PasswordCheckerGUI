@@ -86,8 +86,8 @@ class PasswordCheckerApp(QMainWindow):
         self.create_title_bar_buttons()
 
     def generate_password_button_clicked(self):
-        # Implement the functionality for generating a password
-        generated_password = self.generate_password()  # Replace generate_password with your own implementation
+        
+        generated_password = self.generate_password()
         password_input = self.findChild(QLineEdit)
         password_input.setText(generated_password)
 
@@ -191,7 +191,7 @@ class PasswordCheckerApp(QMainWindow):
         progress_bar.setVisible(False)
 
     def update_password_strength(self, password):
-        # Calculate password strength
+        
         upper, lower, digit, symbols = False, False, False, False
         length = len(password)
         scaling_factor = 0.5 if length > 10 else length / 20
